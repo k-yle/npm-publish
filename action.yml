@@ -1,0 +1,63 @@
+name: npm publish
+description: npm publish
+branding:
+  icon: truck
+  color: green
+runs:
+  using: composite
+  steps:
+    - name: Abort if not on mainline branch.
+      # check if running on the main branch
+      if: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
+      shell: bash
+      run: 'echo "Not publishing. The main branch is ‘${{github.event.repository.default_branch}}’, but this CI job is running on branch ‘${{ steps.need_publish.outputs.changed }}’."'
+
+    # we could use https://github.com/EndBug/version-check, but there's so much
+    # extra config required that it doesn't save any SLOC in this config.
+    - name: Compare package.json's version with the registry's version
+      id: packageJson
+      if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+      shell: bash
+      run: |
+        node -p '"local=" + require("./package.json").version' >> "$GITHUB_OUTPUT"
+        node -e 'fetch(`https://registry.npmjs.org/${require("./package.json").name}/latest`).then(r => r.json()).then(r => "remote=" + r.version).then(console.log)' >> "$GITHUB_OUTPUT"
+
+    - name: Abort if the version has not changed.
+      if: ${{ steps.packageJson.outputs.local == steps.packageJson.outputs.remote && steps.packageJson.outputs.local != '' }}
+      shell: bash
+      run: |
+        echo "Not publishing. The local package version is the same as the published version on npm (${{ steps.packageJson.outputs.local }})."
+
+    - name: Log version check results
+      if: ${{ steps.packageJson.outputs.local != steps.packageJson.outputs.remote && steps.packageJson.outputs.local != '' }}
+      shell: bash
+      run: |
+        echo "The version number has changed (local=${{ steps.packageJson.outputs.local }}, remote=${{ steps.packageJson.outputs.remote }})."
+
+    - name: Install npm@>11.5.1 (required for trusted-publishers)
+      if: ${{ steps.packageJson.outputs.local != steps.packageJson.outputs.remote && steps.packageJson.outputs.local != '' }}
+      # old versions of node (pre v25) default to an older version of npm
+      shell: bash
+      run: npm install -g npm@latest
+
+    # disabled because it would require push-access to the repo, and we'd like to
+    # keep things simple and avoid that.
+    #
+    # - name: Create git tag
+    #   if: ${{ steps.packageJson.outputs.local != steps.packageJson.outputs.remote && steps.packageJson.outputs.local != '' }}
+    #   uses: actions/github-script@v8
+    #   with:
+    #     script: |
+    #       const ref = `refs/tags/v${require('./package.json').version}`;
+    #       console.log('creating tag…', ref);
+    #       github.rest.git.createRef({
+    #         owner: context.repo.owner,
+    #         repo: context.repo.repo,
+    #         ref,
+    #         sha: context.sha
+    #       });
+
+    - name: Publish to npm
+      if: ${{ steps.packageJson.outputs.local != steps.packageJson.outputs.remote && steps.packageJson.outputs.local != '' }}
+      shell: bash
+      run: npm publish --provenance
