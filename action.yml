@@ -10,7 +10,7 @@ runs:
       # check if running on the main branch
       if: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
       shell: bash
-      run: 'echo "Not publishing. The main branch is ‘${{github.event.repository.default_branch}}’, but this CI job is running on branch ‘${{ steps.need_publish.outputs.changed }}’."'
+      run: 'echo "Not publishing. The main branch is ‘${{github.event.repository.default_branch}}’, but this CI job is running on branch ‘${{ github.ref }}’."'
 
     # we could use https://github.com/EndBug/version-check, but there's so much
     # extra config required that it doesn't save any SLOC in this config.

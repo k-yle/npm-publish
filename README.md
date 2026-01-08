@@ -8,13 +8,11 @@ we need to switch to [Trusted Publishers](https://docs.npmjs.com/trusted-publish
 
 # New Process
 
-1. Go to [the GitHub repo Settings -> Environments](https://github.com/***/***/settings/environments), click <kbd>New Environment</kbd>:
-   - environment name: `npm`
-   - change <kbd>No restriction</kbd> to <kbd>Protected branches only</kbd>
+1. Ensure that [branch protection rules](https://github.com/***/***/settings/branch_protection_rules) are enabled for the mainline branch
 2. Go to [the npm package settings](https://www.npmjs.com/package/***/access):
    - enter the repo name
    - Workflow filename: `ci.yml`
-   - Environment name: `npm`
+   - Environment name: _blank_
    - click submit
    - change 'Publishing access' to `Require two-factor authentication and disallow tokens (recommended)`
 3. Delete `NPM_AUTH_TOKEN` from [the GitHub secrets](https://github.com/***/***/settings/secrets/actions), to avoid confusion.
@@ -41,10 +39,11 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x, 24.x]
-
-    environment:
-      name: npm
+        node-version:
+          - { v: 18 }
+          - { v: 20 }
+          - { v: 22 }
+          - { v: 24, isLatest: yes }
 
     steps:
       - name: ⏬ Checkout code
@@ -53,7 +52,7 @@ jobs:
       - name: ⏬ Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: ${{ matrix.node-version.v }}
           registry-url: 'https://registry.npmjs.org'
 
       - name: ⏬ Install
@@ -69,11 +68,10 @@ jobs:
         run: npm test
 
       - uses: k-yle/npm-publish@v1
-        if: ${{ matrix.node-version == '24.x' }} # prevent race conditions, only one of the matrix jobs should try publish
+        if: ${{ matrix.node-version.isLatest }} # prevent race conditions, only one of the matrix jobs should try publish
 ```
 
 # Future Optimisations
 
 - defining `on.push` and `on.pull_request` makes the CI run twice for first-party PRs ([known issue](https://github.com/orgs/community/discussions/26940))
-- setting `environment` on every build job messes up the github UI; it thinks every commit is deploying to npm… No easy solution since `environment` is defined per-job, and [composite actions](https://docs.github.com/en/actions/tutorials/create-actions/create-a-composite-action) can't define multiple conditional jobs
 - surely there'll be an official CI action for something as common as publishing to npm??
