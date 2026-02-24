@@ -49,7 +49,7 @@ jobs:
       - name: ⏬ Checkout code
         uses: actions/checkout@v6
 
-      - name: ⏬ Use Node.js ${{ matrix.node-version }}
+      - name: ⏬ Use Node.js ${{ matrix.node-version.v }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version.v }}
